@@ -1,8 +1,7 @@
 package me.pqpo.methodhook;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by qiulinmin on 7/7/17.
@@ -13,24 +12,38 @@ public class MethodHook {
     public static void m1(){}
     public static void m2(){}
 
-    private Map<Method, Long> methodBackup = new ConcurrentHashMap<>();
+    private Method srcMethod;
+    private Method hookMethod;
 
-    public void hook(Method src, Method dest) {
-        if (src == null || dest == null) {
-            return;
-        }
-        if (!methodBackup.containsKey(src)) {
-            methodBackup.put(src, hook_native(src, dest));
+    private long backupMethodPtr;
+
+    public MethodHook(Method src, Method dest) {
+        srcMethod = src;
+        hookMethod = dest;
+        srcMethod.setAccessible(true);
+        hookMethod.setAccessible(true);
+    }
+
+    public void hook() {
+        if (backupMethodPtr == 0) {
+            backupMethodPtr = hook_native(srcMethod, hookMethod);
         }
     }
 
-    public void restore(Method src) {
-        if (src == null) {
-            return;
+    public void restore() {
+        if (backupMethodPtr != 0) {
+            restore_native(srcMethod, backupMethodPtr);
+            backupMethodPtr = 0;
         }
-        Long srcMethodPtr = methodBackup.get(src);
-        if (srcMethodPtr != null) {
-            methodBackup.remove(restore_native(src, srcMethodPtr));
+    }
+
+    public void callOrigin(Object receiver, Object... args) throws InvocationTargetException, IllegalAccessException {
+        if (backupMethodPtr != 0) {
+            restore();
+            srcMethod.invoke(receiver, args);
+            hook();
+        } else {
+            srcMethod.invoke(receiver, args);
         }
     }
 

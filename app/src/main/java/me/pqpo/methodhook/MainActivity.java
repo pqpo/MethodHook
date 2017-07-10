@@ -2,23 +2,20 @@ package me.pqpo.methodhook;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 public class MainActivity extends AppCompatActivity {
-
-    MethodHook methodHook;
-    Method srcMethod;
-    Method destMethod;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        methodHook = new MethodHook();
 
         Button btnClick = (Button) findViewById(R.id.click);
         Button btnHook = (Button) findViewById(R.id.hook);
@@ -27,39 +24,52 @@ public class MainActivity extends AppCompatActivity {
         btnClick.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showToast();
+                showToast("Hello!");
             }
         });
-
-        try {
-            srcMethod = getClass().getDeclaredMethod("showToast");
-            destMethod = getClass().getDeclaredMethod("showHookToast");
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        }
 
         btnHook.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                methodHook.hook(srcMethod, destMethod);
+                try {
+                    Method srcMethod = MainActivity.class.getDeclaredMethod("showToast", String.class);
+                    Method destMethod = MainActivity.class.getDeclaredMethod("showHookToast", String.class);
+                    HookManager.get().hookMethod(srcMethod, destMethod);
+                } catch (NoSuchMethodException e) {
+                    e.printStackTrace();
+                }
             }
         });
 
         btnRestore.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                methodHook.restore(srcMethod);
+                //hook 失败
+//                try {
+//                    HookManager.get().hookMethod(Toast.class.getDeclaredMethod("show"), MainActivity.class.getDeclaredMethod("Toast_show"));
+//                } catch (NoSuchMethodException e) {
+//                    e.printStackTrace();
+//                }
             }
+
         });
 
+
+        }
+
+    public void showToast(String msg) {
+        Toast toast = Toast.makeText(this, msg, Toast.LENGTH_SHORT);
+        toast.show();
     }
 
-    public void showToast() {
-        Toast.makeText(this, "Hello!", Toast.LENGTH_SHORT).show();
+    public void showHookToast(String msg) {
+        Log.d("MainActivity", "msg:" + msg);
+        HookManager.get().callOrigin(this, msg + "(Hook)");
     }
 
-    public void showHookToast() {
-        Toast.makeText(this, "Hello Hook!", Toast.LENGTH_SHORT).show();
+    public void Toast_show() {
+        Log.d("MainActivity", "Toast_show");
+        HookManager.get().callOrigin(this);
     }
 
 }
